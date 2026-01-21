@@ -15,10 +15,17 @@ import pytest
 
 from homeassistant import config_entries
 from homeassistant.components.dexcom.const import DOMAIN
+from homeassistant.const import CONF_PASSWORD
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
-from .conftest import CONFIG_V2, TEST_ACCOUNT_ID, TEST_USERNAME, init_integration
+from .conftest import (
+    CONFIG_V2,
+    TEST_ACCOUNT_ID,
+    TEST_PASSWORD,
+    TEST_USERNAME,
+    init_integration,
+)
 
 from tests.common import MockConfigEntry
 
@@ -95,3 +102,90 @@ async def test_step_user_already_configured(
 
     assert result2["type"] is FlowResultType.ABORT
     assert result2["reason"] == "already_configured"
+
+
+async def test_step_reauth(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry, mock_dexcom: MagicMock
+) -> None:
+    """Test we get the reauth form."""
+    await init_integration(hass, mock_config_entry)
+
+    result1 = await mock_config_entry.start_reauth_flow(hass)
+
+    assert result1["type"] is FlowResultType.FORM
+    assert result1["errors"] == {}
+    assert result1["step_id"] == "reauth_confirm"
+
+    result2 = await hass.config_entries.flow.async_configure(
+        result1["flow_id"],
+        {CONF_PASSWORD: TEST_PASSWORD},
+    )
+    await hass.async_block_till_done()
+
+    assert result2["type"] is FlowResultType.ABORT
+    assert result1["errors"] == {}
+    assert result2["reason"] == "reauth_successful"
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        AccountError(AccountErrorEnum.FAILED_AUTHENTICATION),
+        SessionError(SessionErrorEnum.INVALID),
+        ServerError(ServerErrorEnum.UNEXPECTED),
+        Exception,
+    ],
+)
+async def test_step_reauth_error(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_dexcom_gen: Generator[MagicMock],
+    mock_dexcom: MagicMock,
+    error: Exception,
+) -> None:
+    """Test we handle reauth errors."""
+    await init_integration(hass, mock_config_entry)
+
+    mock_dexcom_gen.side_effect = error
+
+    result1 = await mock_config_entry.start_reauth_flow(hass)
+
+    assert result1["type"] is FlowResultType.FORM
+    assert result1["errors"] == {}
+    assert result1["step_id"] == "reauth_confirm"
+
+    result2 = await hass.config_entries.flow.async_configure(
+        result1["flow_id"],
+        {CONF_PASSWORD: TEST_PASSWORD},
+    )
+    await hass.async_block_till_done()
+
+    assert result2["type"] is FlowResultType.FORM
+    assert result2["errors"] == {
+        "base": "invalid_auth" if isinstance(error, AccountError) else "unknown"
+    }
+
+
+async def test_step_reauth_wrong_account(
+    hass: HomeAssistant, mock_config_entry: MockConfigEntry, mock_dexcom: MagicMock
+) -> None:
+    """Test we handle reauth wrong accounts."""
+    await init_integration(hass, mock_config_entry)
+
+    result1 = await mock_config_entry.start_reauth_flow(hass)
+
+    assert result1["type"] is FlowResultType.FORM
+    assert result1["errors"] == {}
+    assert result1["step_id"] == "reauth_confirm"
+
+    mock_dexcom.account_id = "different_account_id"
+
+    result2 = await hass.config_entries.flow.async_configure(
+        result1["flow_id"],
+        {CONF_PASSWORD: TEST_PASSWORD},
+    )
+    await hass.async_block_till_done()
+
+    assert result2["type"] is FlowResultType.ABORT
+    assert result1["errors"] == {}
+    assert result2["reason"] == "wrong_account"

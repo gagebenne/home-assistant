@@ -1,7 +1,10 @@
 {
   "config": {
     "abort": {
-      "already_configured": "[%key:common::config_flow::abort::already_configured_account%]"
+      "already_configured": "[%key:common::config_flow::abort::already_configured_account%]",
+      "already_in_progress": "[%key:common::config_flow::abort::already_in_progress%]",
+      "reauth_successful": "[%key:common::config_flow::abort::reauth_successful%]",
+      "wrong_account": "You can only re-authenticate this account with the same account"
     },
     "error": {
       "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
@@ -9,6 +12,13 @@
       "unknown": "[%key:common::config_flow::error::unknown%]"
     },
     "step": {
+      "reauth_confirm": {
+        "data": {
+          "password": "[%key:common::config_flow::data::password%]"
+        },
+        "description": "Re-enter your Dexcom Share password",
+        "title": "Re-authenticate Dexcom"
+      },
       "user": {
         "data": {
           "password": "[%key:common::config_flow::data::password%]",
@@ -16,7 +26,7 @@
           "username": "[%key:common::config_flow::data::username%]"
         },
         "data_description": {
-          "username": "Username, email address, or phone number (`+<country code><phone number>`)"
+          "username": "Username, email address, or phone number (+[country code][phone number])"
         },
         "description": "Enter Dexcom Share credentials",
         "title": "Set up the Dexcom integration"
