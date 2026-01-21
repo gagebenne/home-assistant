@@ -44,7 +44,9 @@
           "rising": "Rising",
           "rising_quickly": "Rising quickly",
           "rising_slightly": "Rising slightly",
-          "steady": "Steady"
+          "steady": "Steady",
+          "trend_unavailable": "Trend unavailable",
+          "unable_to_determine_trend": "Unable to determine trend"
         }
       },
       "glucose_value": {

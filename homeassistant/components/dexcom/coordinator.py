@@ -4,10 +4,12 @@ from datetime import timedelta
 import logging
 
 from pydexcom import Dexcom, GlucoseReading
+from pydexcom.errors import AccountError, ServerError, SessionError
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import DOMAIN
 
@@ -18,7 +20,7 @@ _SCAN_INTERVAL = timedelta(seconds=180)
 type DexcomConfigEntry = ConfigEntry[DexcomCoordinator]
 
 
-class DexcomCoordinator(DataUpdateCoordinator[GlucoseReading]):
+class DexcomCoordinator(DataUpdateCoordinator[GlucoseReading | None]):
     """Dexcom Coordinator."""
 
     def __init__(
@@ -37,8 +39,13 @@ class DexcomCoordinator(DataUpdateCoordinator[GlucoseReading]):
         )
         self.dexcom = dexcom
 
-    async def _async_update_data(self) -> GlucoseReading:
+    async def _async_update_data(self) -> GlucoseReading | None:
         """Fetch data from API endpoint."""
-        return await self.hass.async_add_executor_job(
-            self.dexcom.get_current_glucose_reading
-        )
+        try:
+            return await self.hass.async_add_executor_job(
+                self.dexcom.get_current_glucose_reading
+            )
+        except AccountError as err:
+            raise ConfigEntryAuthFailed from err
+        except (SessionError, ServerError) as err:
+            raise UpdateFailed from err
